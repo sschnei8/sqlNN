@@ -124,11 +124,15 @@ result.plot.bar(x='RAND_FLOAT', y='TOTAL')
 plt.show()
 
 # %%
+# ------------------------------------------------
+# *** FORWARD PASS TO FIRST HIDDEN LAYER ***]
+# ------------------------------------------------
+
 # 1. We take out 784 pixels and transpose them 
 # 2. We Join them and their associated values to our input layer 
-# 3. We Multiply Weight * THe newly Joined values and sum for neuron 
+# 3. We Multiply Weight * The newly Joined values and sum for neuron 
 # 4. We add our bias 
-# 5. We peerform our case statement RELU for each node 
+# 5. We apply our activation function via case statement ReLU for each node 
 
 # 6. going to need some table to cache intermediate results just not sure what this looks like yet 
 
@@ -158,7 +162,7 @@ SELECT I.NEURON
      , I.WEIGHT
      , P.PIXEL_VALUE
      , I.WEIGHT * P.PIXEL_VALUE AS WEIGHTxVALUE
-FROM INPUT_WEIGHTS I
+FROM INPUT_WEIGHTS_HE_INIT I
     LEFT JOIN TRANSPOSED_PIXELS P ON INPUT_LAYER = PIXEL_ID
 ), 
 
@@ -196,6 +200,64 @@ WHERE NEURON < 10
 SELECT NEURON
      , 0 AS BIAS  
 FROM TEN_NEURONS
+"""
+)
+
+# %%
+# [V2 HE Weight Initialization]
+query.query(
+"""
+-- TRUNCATE TABLE INPUT_WEIGHTS_HE_INIT;
+-- DROP TABLE IF EXISTS INPUT_WEIGHTS_HE_INIT;
+
+CREATE TEMP TABLE STAGE_INPUTS AS (
+WITH RECURSIVE ALL_INPUTS (INPUT_LAYER) AS ( -- GENERATE 784 INPUT PIXELS
+SELECT 0 AS INPUT_LAYER
+UNION 
+SELECT INPUT_LAYER + 1 AS INPUT_LAYER
+FROM ALL_INPUTS
+WHERE INPUT_LAYER < 783
+)
+SELECT * FROM ALL_INPUTS
+);
+
+CREATE TEMP TABLE STAGE_NUERONS AS (
+WITH RECURSIVE TEN_NEURONS (NEURON) AS ( -- GENERATE TEN NERONS
+SELECT 1 AS NEURON
+UNION 
+SELECT NEURON + 1 AS NEURON
+FROM TEN_NEURONS
+WHERE NEURON < 10
+)
+
+SELECT * FROM TEN_NEURONS
+);
+
+CREATE TABLE INPUT_WEIGHTS_HE_INIT AS (
+-- SQRT(6 / N) WHERE N IS THE NUMBER OF INPUTS
+WITH VARIANCE AS (
+SELECT SQRT(6::FLOAT / COUNT(1)) AS VAR
+FROM STAGE_INPUTS
+)
+
+-- NOW WE CROSS JOIN INPUTS EXPLODING THE RESULT SET BY 784 ROWS FOR EACH NEURON
+-- LASTLY WE ADD OUR WEIGHTS && CREATE OUR TABLE
+-- Because RANDOM() PRODUCES VALUES BETWEEN 0 & 1, WE SHIFT TO -1 & 1
+SELECT N.NEURON
+     , A.INPUT_LAYER
+     , ((RANDOM() * 2) - 1) * V.VAR AS WEIGHT -- TRANSFORM TO NEW RANGE -1 -> 1, MULTIPLY BY VAR
+FROM STAGE_NUERONS N
+CROSS JOIN STAGE_INPUTS A
+LEFT JOIN VARIANCE V ON 1=1 -- ADD VAR TO EACH ROW 
+);
+"""
+)
+
+
+# %%
+query.query(
+"""
+SELECT * FROM INPUT_WEIGHTS_HE_INIT LIMIT 10
 """
 )
 

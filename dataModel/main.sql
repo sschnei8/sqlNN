@@ -12,7 +12,17 @@ SELECT * FROM INPUT_DATA LIMIT 10;
 ----------------------------------------------------------------------------------------------------
 -- We need to start with some random initial weight values between 0 and 1
 -- https://www.deeplearning.ai/ai-notes/initialization/index.html
+-- https://proceedings.neurips.cc/paper/2015/hash/ae0eb3eed39d2bcef4622b2499a05fe6-Abstract.html
 -- Weight initialization is an interesting topic and this is certinaly an extremely basic approach
+
+-- https://wandb.ai/sauravmaheshkar/initialization/reports/A-Gentle-Introduction-To-Weight-Initialization-for-Neural-Networks--Vmlldzo2ODExMTg
+-- ReLU is typically defined as f(x)=max(0,x)f(x) = max(0, x)
+-- f(x)=max(0,x), notice that this function does not have a zero mean.
+-- ReLU zeros out negative values, halving variance
+-- HE Initialization: http://arxiv.org/pdf/1502.01852
+-- Becasue we are drawing from a uniform distribution we need to adjust to 6 instead of 2
+-- https://www.pinecone.io/learn/weight-initialization/
+
 
 -- In our first hidden layer we are going to have 10 nuerons 
 -- Each Nueron will have 784 inputs one for each pixel in the image 
@@ -46,7 +56,7 @@ SELECT * FROM TEN_NEURONS
 CREATE TABLE INPUT_WEIGHTS AS (
 SELECT N.NEURON
      , A.INPUT_LAYER
-     , RANDOM() AS WEIGHT
+     , RANDOM() AS WEIGHT -- Random Uniform initialization
 FROM STAGE_NUERONS N
 CROSS JOIN STAGE_INPUTS A
 );
