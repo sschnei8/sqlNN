@@ -4,9 +4,10 @@ setup(
     name="sqlNN",
     install_requires=[
         "duckdb",
-        "pandas[parquet]",
-        "plotly",
-        "pyarrow",
+        "pandas",
+        "matplotlib",
+        "numpy",
+        "python-dotenv",
     ]
 )
 
