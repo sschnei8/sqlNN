@@ -4,7 +4,7 @@ import duckdb
 # Create a DuckDB instance
 # duckdb.connect(dbname) creates a connection to a persistent database
 
-def query(sqltext:str):
+def query(sqltext:str) -> None: 
     conn = duckdb.connect("training.db")
     print(conn.execute(sqltext).df())
 

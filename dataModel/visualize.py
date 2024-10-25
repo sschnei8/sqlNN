@@ -20,5 +20,5 @@ def visualize_row(index):
     plt.show()
 
 if __name__ == '__main__':
-    visualize_row(3)
+    visualize_row(1)
 # %%

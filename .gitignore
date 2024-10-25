@@ -1,3 +1,4 @@
 .env
 .envSQL
 sqlNN.egg-info
+**.db

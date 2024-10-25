@@ -1,4 +1,23 @@
-----------------------------------------------------------------------------------------------------
+Links:
+https://stackoverflow.com/questions/3775032/how-to-update-the-bias-in-neural-network-backpropagation
+https://towardsdatascience.com/estimating-optimal-learning-rate-for-a-deep-neural-network-ce32f2556ce0
+https://math.stackexchange.com/questions/78575/derivative-of-sigmoid-function-sigma-x-frac11e-x
+https://stats.stackexchange.com/questions/333394/what-is-the-derivative-of-the-relu-activation-function
+https://discuss.pytorch.org/t/how-to-prevent-very-large-values-in-final-linear-layer/147054/4
+https://hmkcode.com/ai/backpropagation-step-by-step/
+http://neuralnetworksanddeeplearning.com/chap2.html
+https://www.emergentmind.com/
+https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example/
+https://en.wikipedia.org/wiki/E_(mathematical_constant)
+https://www.pinecone.io/learn/softmax-activation/
+https://machinelearningmastery.com/weight-initialization-for-deep-learning-neural-networks/
+https://www.geeksforgeeks.org/weight-initialization-techniques-for-deep-neural-networks/
+https://towardsdatascience.com/deep-neural-network-implemented-in-pure-sql-over-bigquery-f3ed245814d3
+https://www.dremio.com/wiki/softmax-function/
+
+https://www.kaggle.com/competitions/digit-recognizer/data?select=train.csv
+
+---------------------------------------------------------------------------------------------------
 -- Create table for input data (assuming 784 input features)
 ----------------------------------------------------------------------------------------------------
 CREATE TABLE input_data AS
@@ -182,4 +201,90 @@ COPY (
 ) TO 'submission.csv' WITH (HEADER);
 
 
+----- BACK PROP -----
 
+-- Step 1: Calculate the error at the output layer using MSE
+CREATE TABLE OUTPUT_ERROR AS (
+    WITH TRUE_LABEL AS (
+        SELECT LABEL
+        FROM INPUT_DATA
+        WHERE ID = 1  
+    )
+    SELECT
+        F.OUTPUT,
+        F.OUTPUT_PERC,
+        CASE
+            WHEN F.OUTPUT = L.LABEL THEN POWER(F.OUTPUT_PERC - 1, 2)
+            ELSE POWER(F.OUTPUT_PERC - 0, 2)
+        END AS SQUARED_ERROR,
+        CASE
+            WHEN F.OUTPUT = L.LABEL THEN 2 * (F.OUTPUT_PERC - 1)
+            ELSE 2 * F.OUTPUT_PERC
+        END AS ERROR_GRADIENT
+    FROM FINAL_OUTPUTS F
+    CROSS JOIN TRUE_LABEL L
+);
+-- Step 2: Calculate gradients for weights between hidden layer and output layer
+CREATE TABLE OUTPUT_WEIGHT_GRADIENTS AS (
+    SELECT
+        H.OUTPUT,
+        H.HIDDEN_LAYER,
+        F.ACTIVATED_VALUE,
+        O.ERROR_GRADIENT,
+        O.ERROR_GRADIENT * F.ACTIVATED_VALUE AS GRADIENT
+    FROM HIDDEN_WEIGHTS_HE_INIT H
+    JOIN FIRST_HIDDEN_LAYER_VALUES F ON H.HIDDEN_LAYER = F.NEURON
+    JOIN OUTPUT_ERROR O ON H.OUTPUT = O.OUTPUT
+);
+-- Step 3: Update weights and biases for the output layer
+-- Assuming a learning rate of 0.01
+UPDATE HIDDEN_WEIGHTS_HE_INIT
+SET WEIGHT = WEIGHT - 0.01 * GRADIENT
+FROM OUTPUT_WEIGHT_GRADIENTS
+WHERE HIDDEN_WEIGHTS_HE_INIT.OUTPUT = OUTPUT_WEIGHT_GRADIENTS.OUTPUT
+  AND HIDDEN_WEIGHTS_HE_INIT.HIDDEN_LAYER = OUTPUT_WEIGHT_GRADIENTS.HIDDEN_LAYER;
+UPDATE OUTPUT_BIAS_CACHE
+SET BIAS = BIAS - 0.01 * ERROR_GRADIENT
+FROM OUTPUT_ERROR
+WHERE OUTPUT_BIAS_CACHE.OUTPUT = OUTPUT_ERROR.OUTPUT;
+-- Step 4: Calculate the error at the hidden layer
+CREATE TABLE HIDDEN_LAYER_ERROR AS (
+    SELECT
+        H.HIDDEN_LAYER,
+        SUM(O.ERROR_GRADIENT * H.WEIGHT) AS ERROR
+    FROM HIDDEN_WEIGHTS_HE_INIT H
+    JOIN OUTPUT_ERROR O ON H.OUTPUT = O.OUTPUT
+    GROUP BY H.HIDDEN_LAYER
+);
+-- Step 5: Calculate gradients for weights between input layer and hidden layer
+CREATE TABLE INPUT_WEIGHT_GRADIENTS AS (
+    WITH INPUT_VALUES AS (
+        SELECT
+            CAST(LTRIM(PIXEL, 'pixel') AS INTEGER) AS PIXEL_ID,
+            PIXEL_VALUE
+        FROM TRANSPOSED_PIXELS
+    )
+    SELECT
+        I.NEURON,
+        I.INPUT_LAYER,
+        V.PIXEL_VALUE,
+        H.ERROR,
+        CASE
+            WHEN F.ACTIVATED_VALUE > 0 THEN H.ERROR * V.PIXEL_VALUE
+            ELSE 0
+        END AS GRADIENT
+    FROM INPUT_WEIGHTS_HE_INIT I
+    JOIN INPUT_VALUES V ON I.INPUT_LAYER = V.PIXEL_ID
+    JOIN HIDDEN_LAYER_ERROR H ON I.NEURON = H.HIDDEN_LAYER
+    JOIN FIRST_HIDDEN_LAYER_VALUES F ON I.NEURON = F.NEURON
+);
+-- Step 6: Update weights and biases for the hidden layer
+UPDATE INPUT_WEIGHTS_HE_INIT
+SET WEIGHT = WEIGHT - 0.01 * GRADIENT
+FROM INPUT_WEIGHT_GRADIENTS
+WHERE INPUT_WEIGHTS_HE_INIT.NEURON = INPUT_WEIGHT_GRADIENTS.NEURON
+  AND INPUT_WEIGHTS_HE_INIT.INPUT_LAYER = INPUT_WEIGHT_GRADIENTS.INPUT_LAYER;
+UPDATE BIAS_CACHE
+SET BIAS = BIAS - 0.01 * ERROR
+FROM HIDDEN_LAYER_ERROR
+WHERE BIAS_CACHE.NEURON = HIDDEN_LAYER_ERROR.HIDDEN_LAYER;
